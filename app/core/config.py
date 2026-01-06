@@ -55,6 +55,13 @@ class Settings(BaseSettings):
     PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 15
 
     # -------------------------
+    # Cloudinary
+    # -------------------------
+    CLOUDINARY_CLOUD_NAME: Optional[str] = None
+    CLOUDINARY_API_KEY: Optional[str] = None
+    CLOUDINARY_API_SECRET: Optional[str] = None
+
+    # -------------------------
     # Validators (Pydantic V2)
     # -------------------------
 

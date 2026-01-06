@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse
 
 from app.core.config import settings
 from app.core.database import DatabaseManager, check_db_connection
-# from app.api.router import api_router
+from app.api.v1.router import api_router
 from app.middleware.logging import LoggingMiddleware
 
 # Configure logging
@@ -126,7 +126,7 @@ async def health_check():
 # ----------------------------------------------------
 # API Routes
 # ----------------------------------------------------
-# app.include_router(api_router, prefix="/api")
+app.include_router(api_router)
 
 
 # ----------------------------------------------------
