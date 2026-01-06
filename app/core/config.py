@@ -37,8 +37,8 @@ class Settings(BaseSettings):
     # -------------------------
     # Application
     # -------------------------
-    PROJECT_NAME: str = "Finance Tracker"
-    DEBUG: bool = False
+    PROJECT_NAME: str = "HENA BOOKS API"
+    DEBUG: bool = False 
     LOG_LEVEL: str = "INFO"
     TIMEZONE: str = "UTC"
 
