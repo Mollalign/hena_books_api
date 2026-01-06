@@ -10,6 +10,7 @@ from app.services.user_service import UserService
 from app.services.book_service import BookService
 from app.services.reading_session_service import ReadingSessionService
 from app.services.analytics import AnalyticsService
+from app.services.password_reset_service import PasswordResetService
 from app.services.cloudinary import (
     upload_book_file,
     upload_cover_image,
@@ -23,6 +24,7 @@ __all__ = [
     "BookService",
     "ReadingSessionService",
     "AnalyticsService",
+    "PasswordResetService",
     "upload_book_file",
     "upload_cover_image",
     "delete_file",

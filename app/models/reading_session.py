@@ -7,6 +7,7 @@ Records when users start reading, how long they read, and which page they reache
 
 from datetime import datetime
 from sqlalchemy import Column, Integer, DateTime, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -18,8 +19,8 @@ class ReadingSession(Base):
     
     Attributes:
         id: Primary key
-        user_id: Foreign key to users table
-        book_id: Foreign key to books table
+        user_id: Foreign key to users table (UUID)
+        book_id: Foreign key to books table (UUID)
         started_at: When reading session began
         ended_at: When reading session ended (null if still reading)
         last_page_read: Last page the user viewed
@@ -28,8 +29,8 @@ class ReadingSession(Base):
     __tablename__ = "reading_sessions"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    book_id = Column(Integer, ForeignKey("books.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    book_id = Column(UUID(as_uuid=True), ForeignKey("books.id", ondelete="CASCADE"), nullable=False, index=True)
     started_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     ended_at = Column(DateTime, nullable=True)
     last_page_read = Column(Integer, default=1, nullable=False)

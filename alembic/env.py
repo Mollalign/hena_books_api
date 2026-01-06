@@ -1,9 +1,21 @@
 from logging.config import fileConfig
-
+import asyncio
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
 
 from alembic import context
+
+# Import Base and all models for autogenerate support
+from app.core.database import Base
+from app.models.user import User
+from app.models.book import Book
+from app.models.reading_session import ReadingSession
+from app.models.password_reset import PasswordReset
+
+# Import settings for database URL
+from app.core.config import settings
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -14,11 +26,11 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# add your model's MetaData object here
-# for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
-target_metadata = None
+# Set target_metadata for autogenerate support
+target_metadata = Base.metadata
+
+# Override sqlalchemy.url with settings from app
+config.set_main_option("sqlalchemy.url", str(settings.DATABASE_URL))
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -57,8 +69,16 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
+    # Convert asyncpg URL to psycopg2 for Alembic (synchronous)
+    # Alembic needs a synchronous driver
+    database_url = str(settings.DATABASE_URL)
+    if database_url.startswith("postgresql+asyncpg://"):
+        # Replace asyncpg with psycopg2 for Alembic
+        database_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
+    
+    # Create synchronous engine for Alembic
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        {"sqlalchemy.url": database_url},
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )

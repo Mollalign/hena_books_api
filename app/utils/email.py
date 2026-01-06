@@ -64,27 +64,55 @@ def send_email(
         # In production we might want to re-raise or handle differently
         return False
 
-def send_invitation_email(email: str, mission_name: str, role: str):
+def send_password_reset_code(email: str, code: str, expires_in_minutes: int = 15):
     """
-    Send a mission invitation email.
-    """
-    # Construct registration link
-    # Assuming frontend URL is in settings or default
-    base_url = settings.FRONTEND_URL or "http://localhost:3000"
-    register_url = f"{base_url}/register?email={email}&invite_mission={mission_name}&invite_role={role}"
+    Send a password reset code email.
     
-    subject = f"Invitation to join mission: {mission_name}"
+    Args:
+        email: User email address
+        code: 6-digit reset code
+        expires_in_minutes: Code expiration time in minutes
+    """
+    subject = "Password Reset Code - Hena Books"
     
     html_content = f"""
     <html>
-        <body>
-            <h2>Hello!</h2>
-            <p>You have been invited to join the mission <strong>{mission_name}</strong> as a <strong>{role}</strong>.</p>
-            <p>Please click the link below to register and accept the invitation:</p>
-            <p><a href="{register_url}">Join Mission</a></p>
-            <p>If you did not expect this invitation, please ignore this email.</p>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                <h2 style="color: #2c3e50;">Password Reset Request</h2>
+                <p>Hello,</p>
+                <p>You have requested to reset your password for your Hena Books account.</p>
+                <p>Your password reset code is:</p>
+                <div style="background-color: #f4f4f4; border: 2px dashed #3498db; padding: 20px; text-align: center; margin: 20px 0;">
+                    <h1 style="color: #3498db; font-size: 32px; letter-spacing: 5px; margin: 0;">{code}</h1>
+                </div>
+                <p>This code will expire in <strong>{expires_in_minutes} minutes</strong>.</p>
+                <p>If you did not request this password reset, please ignore this email. Your account remains secure.</p>
+                <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+                <p style="color: #7f8c8d; font-size: 12px;">
+                    This is an automated message. Please do not reply to this email.
+                </p>
+            </div>
         </body>
     </html>
     """
     
-    return send_email([email], subject, html_content, "html")
+    plain_content = f"""
+Password Reset Request
+
+Hello,
+
+You have requested to reset your password for your Hena Books account.
+
+Your password reset code is: {code}
+
+This code will expire in {expires_in_minutes} minutes.
+
+If you did not request this password reset, please ignore this email. Your account remains secure.
+    """
+    
+    # Try HTML first, fallback to plain text
+    success = send_email([email], subject, html_content, "html")
+    if not success:
+        return send_email([email], subject, plain_content, "plain")
+    return success

@@ -11,8 +11,18 @@ from app.core.database import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
 from app.schemas.user import UserCreate, UserResponse
-from app.schemas.auth import LoginRequest, Token, RefreshTokenRequest
+from app.schemas.auth import (
+    LoginRequest,
+    Token,
+    RefreshTokenRequest,
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
+    VerifyResetCodeRequest,
+    VerifyResetCodeResponse,
+    ResetPasswordRequest,
+)
 from app.services.auth import AuthService
+from app.services.password_reset_service import PasswordResetService
 from app.core.security import create_tokens, decode_token
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -115,3 +125,77 @@ async def get_current_user_info(
     Get the current authenticated user's profile.
     """
     return current_user
+
+
+# =============================================================================
+# PASSWORD RESET ENDPOINTS
+# =============================================================================
+
+@router.post("/forgot-password", response_model=ForgotPasswordResponse)
+async def forgot_password(
+    request: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Request a password reset code.
+    
+    Sends a 6-digit code to the user's email address.
+    The code expires in 15 minutes (configurable).
+    """
+    reset_service = PasswordResetService(db)
+    result = await reset_service.request_password_reset(request.email)
+    
+    return ForgotPasswordResponse(
+        message=result["message"],
+        expires_in_minutes=result["expires_in_minutes"]
+    )
+
+
+@router.post("/verify-reset-code", response_model=VerifyResetCodeResponse)
+async def verify_reset_code(
+    request: VerifyResetCodeRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Verify a password reset code.
+    
+    Checks if the provided code is valid and not expired.
+    """
+    reset_service = PasswordResetService(db)
+    result = await reset_service.verify_reset_code(request.email, request.code)
+    
+    return VerifyResetCodeResponse(
+        valid=result["valid"],
+        message=result["message"]
+    )
+
+
+@router.post("/reset-password", response_model=UserResponse)
+async def reset_password(
+    request: ResetPasswordRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Reset password using a valid reset code.
+    
+    Requires:
+    - Valid email
+    - Valid reset code (not expired, not used)
+    - New password (minimum 6 characters)
+    
+    After successful reset, the code is marked as used and cannot be reused.
+    """
+    reset_service = PasswordResetService(db)
+    user = await reset_service.reset_password(
+        email=request.email,
+        code=request.code,
+        new_password=request.new_password
+    )
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid email, code, or code has expired"
+        )
+    
+    return user

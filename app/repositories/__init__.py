@@ -9,11 +9,13 @@ from app.repositories.base import BaseRepository
 from app.repositories.user_repository import UserRepository
 from app.repositories.book_repository import BookRepository
 from app.repositories.reading_session_repository import ReadingSessionRepository
+from app.repositories.password_reset_repository import PasswordResetRepository
 
 __all__ = [
     "BaseRepository",
     "UserRepository",
     "BookRepository",
     "ReadingSessionRepository",
+    "PasswordResetRepository",
 ]
 
