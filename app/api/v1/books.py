@@ -7,14 +7,11 @@ Public and admin endpoints for book management.
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
 from datetime import date
 
 from app.core.database import get_db
 from app.api.deps import get_current_user, get_admin_user
 from app.models.user import User
-from app.models.book import Book
-from app.models.reading_session import ReadingSession
 from app.schemas.book import (
     BookCreate,
     BookUpdate,
@@ -23,12 +20,9 @@ from app.schemas.book import (
     BookAdminResponse,
     BookListResponse,
 )
-from app.services.cloudinary import (
-    upload_book_file,
-    upload_cover_image,
-    delete_file,
-    get_download_url,
-)
+from app.services.book_service import BookService
+from app.services.reading_session_service import ReadingSessionService
+from app.repositories.reading_session_repository import ReadingSessionRepository
 
 router = APIRouter(prefix="/books", tags=["Books"])
 
@@ -53,28 +47,13 @@ async def list_books(
     - **search**: Search by title
     - **featured_only**: Only return featured books
     """
-    # Build query
-    query = select(Book).where(Book.is_published == True)
-    count_query = select(func.count(Book.id)).where(Book.is_published == True)
-    
-    if search:
-        query = query.where(Book.title.ilike(f"%{search}%"))
-        count_query = count_query.where(Book.title.ilike(f"%{search}%"))
-    
-    if featured_only:
-        query = query.where(Book.is_featured == True)
-        count_query = count_query.where(Book.is_featured == True)
-    
-    # Get total count
-    total_result = await db.execute(count_query)
-    total = total_result.scalar() or 0
-    
-    # Get books with pagination
-    offset = (page - 1) * per_page
-    query = query.order_by(Book.created_at.desc()).offset(offset).limit(per_page)
-    
-    result = await db.execute(query)
-    books = result.scalars().all()
+    book_service = BookService(db)
+    books, total = await book_service.get_published_books(
+        page=page,
+        per_page=per_page,
+        search=search,
+        featured_only=featured_only
+    )
     
     return BookListResponse(
         books=books,
@@ -92,16 +71,8 @@ async def get_featured_books(
     """
     Get featured books for the landing page.
     """
-    query = (
-        select(Book)
-        .where(Book.is_published == True)
-        .where(Book.is_featured == True)
-        .order_by(Book.created_at.desc())
-        .limit(limit)
-    )
-    
-    result = await db.execute(query)
-    return result.scalars().all()
+    book_service = BookService(db)
+    return await book_service.get_featured_books(limit=limit)
 
 
 @router.get("/{book_id}", response_model=BookDetailResponse)
@@ -112,9 +83,11 @@ async def get_book(
     """
     Get a single book by ID with reading statistics.
     """
+    book_service = BookService(db)
+    session_repo = ReadingSessionRepository(db)
+    
     # Get book
-    result = await db.execute(select(Book).where(Book.id == book_id))
-    book = result.scalar_one_or_none()
+    book = await book_service.get_published_book_by_id(book_id)
     
     if not book:
         raise HTTPException(
@@ -122,24 +95,12 @@ async def get_book(
             detail="Book not found"
         )
     
-    if not book.is_published:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Book not found"
-        )
-    
     # Get reading stats
-    stats_query = select(
-        func.count(func.distinct(ReadingSession.user_id)).label("total_readers"),
-        func.sum(ReadingSession.total_time_seconds).label("total_time")
-    ).where(ReadingSession.book_id == book_id)
-    
-    stats_result = await db.execute(stats_query)
-    stats = stats_result.first()
+    stats = await session_repo.get_book_statistics(book_id)
     
     response = BookDetailResponse.model_validate(book)
-    response.total_readers = stats.total_readers or 0
-    response.total_reading_time_hours = round((stats.total_time or 0) / 3600, 2)
+    response.total_readers = stats["total_readers"]
+    response.total_reading_time_hours = round(stats["total_time"] / 3600, 2)
     
     return response
 
@@ -154,10 +115,10 @@ async def get_book_for_reading(
     Get the book file URL for in-browser reading.
     Requires authentication. Does NOT provide download capability.
     """
-    result = await db.execute(select(Book).where(Book.id == book_id))
-    book = result.scalar_one_or_none()
+    book_service = BookService(db)
+    book = await book_service.get_published_book_by_id(book_id)
     
-    if not book or not book.is_published:
+    if not book:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Book not found"
@@ -194,48 +155,17 @@ async def upload_book(
     - **book_file**: PDF file (required)
     - **cover_file**: Cover image (optional, will be resized to 400x600)
     """
-    # Validate file type
-    if not book_file.filename.lower().endswith('.pdf'):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Book file must be a PDF"
-        )
-    
-    try:
-        # Upload book file
-        file_url, file_public_id = await upload_book_file(book_file)
-        
-        # Upload cover if provided
-        cover_url = None
-        cover_public_id = None
-        if cover_file:
-            cover_url, cover_public_id = await upload_cover_image(cover_file)
-        
-        # Create book record
-        book = Book(
-            title=title,
-            description=description,
-            cover_url=cover_url,
-            cover_public_id=cover_public_id,
-            file_url=file_url,
-            file_public_id=file_public_id,
-            page_count=page_count,
-            published_date=published_date,
-            is_featured=is_featured,
-            is_published=is_published
-        )
-        
-        db.add(book)
-        await db.commit()
-        await db.refresh(book)
-        
-        return book
-    
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to upload book: {str(e)}"
-        )
+    book_service = BookService(db)
+    return await book_service.create_book(
+        title=title,
+        description=description,
+        page_count=page_count,
+        published_date=published_date,
+        is_featured=is_featured,
+        is_published=is_published,
+        book_file=book_file,
+        cover_file=cover_file
+    )
 
 
 @router.put("/admin/{book_id}", response_model=BookAdminResponse)
@@ -248,22 +178,15 @@ async def update_book(
     """
     Update book details (Admin only).
     """
-    result = await db.execute(select(Book).where(Book.id == book_id))
-    book = result.scalar_one_or_none()
+    book_service = BookService(db)
+    update_data = book_data.model_dump(exclude_unset=True)
+    book = await book_service.update_book(book_id, **update_data)
     
     if not book:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Book not found"
         )
-    
-    # Update fields
-    update_data = book_data.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(book, field, value)
-    
-    await db.commit()
-    await db.refresh(book)
     
     return book
 
@@ -278,23 +201,14 @@ async def delete_book(
     Delete a book (Admin only).
     This also deletes the files from Cloudinary.
     """
-    result = await db.execute(select(Book).where(Book.id == book_id))
-    book = result.scalar_one_or_none()
+    book_service = BookService(db)
+    deleted = await book_service.delete_book(book_id)
     
-    if not book:
+    if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Book not found"
         )
-    
-    # Delete files from Cloudinary
-    await delete_file(book.file_public_id, "raw")
-    if book.cover_public_id:
-        await delete_file(book.cover_public_id, "image")
-    
-    # Delete from database
-    await db.delete(book)
-    await db.commit()
 
 
 @router.get("/admin/{book_id}/download")
@@ -306,8 +220,8 @@ async def download_book(
     """
     Get download URL for a book (Admin only).
     """
-    result = await db.execute(select(Book).where(Book.id == book_id))
-    book = result.scalar_one_or_none()
+    book_service = BookService(db)
+    book = await book_service.get_book_by_id(book_id)
     
     if not book:
         raise HTTPException(
@@ -315,7 +229,7 @@ async def download_book(
             detail="Book not found"
         )
     
-    download_url = get_download_url(book.file_public_id)
+    download_url = await book_service.get_download_url_for_book(book_id)
     
     if not download_url:
         raise HTTPException(
@@ -337,7 +251,5 @@ async def list_all_books_admin(
     """
     List all books including unpublished (Admin only).
     """
-    result = await db.execute(
-        select(Book).order_by(Book.created_at.desc())
-    )
-    return result.scalars().all()
+    book_service = BookService(db)
+    return await book_service.get_all_books()

@@ -11,7 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.models.user import User, UserRole
-from app.services.auth import decode_token, get_user_by_id
+from app.core.security import decode_token
+from app.services.auth import AuthService
 
 
 # Security scheme for JWT
@@ -53,7 +54,8 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    user = await get_user_by_id(db, int(payload.sub))
+    auth_service = AuthService(db)
+    user = await auth_service.get_user_by_id(int(payload.sub))
     
     if not user:
         raise HTTPException(

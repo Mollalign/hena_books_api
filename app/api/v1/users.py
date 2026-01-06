@@ -7,13 +7,12 @@ Endpoints for user management.
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
 from app.core.database import get_db
 from app.api.deps import get_current_user, get_admin_user
 from app.models.user import User
 from app.schemas.user import UserResponse, UserUpdate
-from app.services.auth import hash_password
+from app.services.user_service import UserService
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -37,16 +36,20 @@ async def update_my_profile(
     """
     Update current user's profile.
     """
-    if update_data.name:
-        current_user.name = update_data.name
+    user_service = UserService(db)
+    updated_user = await user_service.update_user_profile(
+        user_id=current_user.id,
+        name=update_data.name,
+        password=update_data.password
+    )
     
-    if update_data.password:
-        current_user.password_hash = hash_password(update_data.password)
+    if not updated_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
     
-    await db.commit()
-    await db.refresh(current_user)
-    
-    return current_user
+    return updated_user
 
 
 # =============================================================================
@@ -61,10 +64,8 @@ async def list_all_users(
     """
     List all users (Admin only).
     """
-    result = await db.execute(
-        select(User).order_by(User.created_at.desc())
-    )
-    return result.scalars().all()
+    user_service = UserService(db)
+    return await user_service.get_all_users()
 
 
 @router.delete("/admin/{user_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Admin Users"])
@@ -82,14 +83,11 @@ async def delete_user(
             detail="Cannot delete your own account"
         )
     
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
+    user_service = UserService(db)
+    deleted = await user_service.delete_user(user_id)
     
-    if not user:
+    if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
-    
-    await db.delete(user)
-    await db.commit()

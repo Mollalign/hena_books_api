@@ -13,7 +13,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from app.core.database import AsyncSessionLocal, init_db
-from app.services.auth import create_admin_user
+from app.services.auth import AuthService
 
 
 async def seed_admin():
@@ -30,8 +30,8 @@ async def seed_admin():
     admin_name = os.getenv("ADMIN_NAME", "Henok (Admin)")
     
     async with AsyncSessionLocal() as db:
-        admin = await create_admin_user(
-            db=db,
+        auth_service = AuthService(db)
+        admin = await auth_service.create_admin_user(
             email=admin_email,
             password=admin_password,
             name=admin_name
