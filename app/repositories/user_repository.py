@@ -8,6 +8,7 @@ All user-related database operations.
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.repositories.base import BaseRepository
 from app.models.user import User, UserRole
