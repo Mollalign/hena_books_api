@@ -6,9 +6,10 @@ Public and admin endpoints for book management.
 
 from typing import Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import date
+import httpx
 
 from app.core.database import get_db
 from app.api.deps import get_current_user, get_admin_user
@@ -131,6 +132,46 @@ async def get_book_for_reading(
         "file_url": book.file_url,
         "page_count": book.page_count
     }
+
+
+@router.get("/{book_id}/read/file")
+async def get_book_file(
+    book_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Proxy endpoint to stream PDF file from Cloudinary.
+    This avoids CORS issues when loading PDFs in the browser.
+    """
+    book_service = BookService(db)
+    book = await book_service.get_published_book_by_id(book_id)
+    
+    if not book:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Book not found"
+        )
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(book.file_url, follow_redirects=True)
+            response.raise_for_status()
+            
+            return Response(
+                content=response.content,
+                media_type="application/pdf",
+                headers={
+                    "Content-Disposition": f'inline; filename="{book.title}.pdf"',
+                    "Access-Control-Allow-Origin": "*",
+                    "Cache-Control": "public, max-age=3600",
+                }
+            )
+    except httpx.HTTPError as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to fetch PDF file: {str(e)}"
+        )
 
 
 # =============================================================================
