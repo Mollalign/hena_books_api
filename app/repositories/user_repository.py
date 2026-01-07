@@ -27,7 +27,7 @@ class UserRepository(BaseRepository[User]):
         )
         return result.scalar_one_or_none()
     
-    async def get_by_id_with_sessions(self, user_id: int) -> Optional[User]:
+    async def get_by_id_with_sessions(self, user_id) -> Optional[User]:
         """Get a user by ID with reading sessions loaded."""
         result = await self.db.execute(
             select(User)
@@ -67,11 +67,11 @@ class UserRepository(BaseRepository[User]):
         await self.db.refresh(user)
         return user
     
-    async def update_user(self, user_id: int, **kwargs) -> Optional[User]:
+    async def update_user(self, user_id, **kwargs) -> Optional[User]:
         """Update user fields."""
         return await self.update(user_id, **kwargs)
     
-    async def delete_user(self, user_id: int) -> bool:
+    async def delete_user(self, user_id) -> bool:
         """Delete a user by ID."""
         return await self.delete(user_id)
 

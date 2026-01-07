@@ -106,8 +106,8 @@ async def refresh_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # Generate new tokens
-    user_id = int(payload.sub)
+    # Generate new tokens (user_id is UUID string from token)
+    user_id = payload.sub
     access_token, refresh_token = create_tokens(user_id)
     
     return Token(

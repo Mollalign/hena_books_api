@@ -6,6 +6,7 @@ Pydantic models for user request/response validation.
 
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
 
 from app.models.user import UserRole
@@ -32,7 +33,7 @@ class UserResponse(UserBase):
     """Schema for user response (public info)."""
     model_config = ConfigDict(from_attributes=True)
     
-    id: int
+    id: UUID
     role: UserRole
     is_active: bool
     created_at: datetime

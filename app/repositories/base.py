@@ -5,7 +5,7 @@ Abstract base class for all repositories.
 Provides common database operations.
 """
 
-from typing import Generic, TypeVar, Type, Optional, List
+from typing import Generic, TypeVar, Type, Optional, List, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete
 from sqlalchemy.orm import selectinload
@@ -33,8 +33,8 @@ class BaseRepository(Generic[ModelType]):
         self.model = model
         self.db = db
     
-    async def get_by_id(self, id: int) -> Optional[ModelType]:
-        """Get a record by ID."""
+    async def get_by_id(self, id: Any) -> Optional[ModelType]:
+        """Get a record by ID (supports UUID, int, or string)."""
         result = await self.db.execute(
             select(self.model).where(self.model.id == id)
         )
@@ -64,8 +64,8 @@ class BaseRepository(Generic[ModelType]):
         await self.db.refresh(instance)
         return instance
     
-    async def update(self, id: int, **kwargs) -> Optional[ModelType]:
-        """Update a record by ID."""
+    async def update(self, id: Any, **kwargs) -> Optional[ModelType]:
+        """Update a record by ID (supports UUID, int, or string)."""
         instance = await self.get_by_id(id)
         if not instance:
             return None
@@ -77,8 +77,8 @@ class BaseRepository(Generic[ModelType]):
         await self.db.refresh(instance)
         return instance
     
-    async def delete(self, id: int) -> bool:
-        """Delete a record by ID."""
+    async def delete(self, id: Any) -> bool:
+        """Delete a record by ID (supports UUID, int, or string)."""
         instance = await self.get_by_id(id)
         if not instance:
             return False

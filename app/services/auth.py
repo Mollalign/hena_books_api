@@ -5,6 +5,7 @@ Handles JWT token generation, validation, and password hashing.
 """
 
 from typing import Optional, Tuple
+from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,8 +24,14 @@ class AuthService:
         """Get a user by email address."""
         return await self.user_repo.get_by_email(email)
     
-    async def get_user_by_id(self, user_id: int) -> Optional[User]:
-        """Get a user by ID."""
+    async def get_user_by_id(self, user_id) -> Optional[User]:
+        """Get a user by ID (UUID)."""
+        # Handle both UUID and string UUID
+        if isinstance(user_id, str):
+            try:
+                user_id = UUID(user_id)
+            except (ValueError, TypeError):
+                return None
         return await self.user_repo.get_by_id(user_id)
     
     async def authenticate_user(self, email: str, password: str) -> Optional[User]:
@@ -74,7 +81,7 @@ async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
     return await service.get_user_by_email(email)
 
 
-async def get_user_by_id(db: AsyncSession, user_id: int) -> Optional[User]:
+async def get_user_by_id(db: AsyncSession, user_id) -> Optional[User]:
     """Get a user by ID (legacy)."""
     service = AuthService(db)
     return await service.get_user_by_id(user_id)

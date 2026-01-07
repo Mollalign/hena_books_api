@@ -25,7 +25,7 @@ async def seed_admin():
     print("Database tables created.")
     
     # Admin credentials - CHANGE THESE!
-    admin_email = os.getenv("ADMIN_EMAIL", "admin@henabooks.com")
+    admin_email = os.getenv("ADMIN_EMAIL", "molledan69@gmail.com")
     admin_password = os.getenv("ADMIN_PASSWORD", "admin123456")
     admin_name = os.getenv("ADMIN_NAME", "Henok (Admin)")
     

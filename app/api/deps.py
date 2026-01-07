@@ -55,7 +55,17 @@ async def get_current_user(
         )
     
     auth_service = AuthService(db)
-    user = await auth_service.get_user_by_id(int(payload.sub))
+    # payload.sub is already a string (UUID), use it directly
+    from uuid import UUID
+    try:
+        user_id = UUID(payload.sub)
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid user ID in token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    user = await auth_service.get_user_by_id(user_id)
     
     if not user:
         raise HTTPException(
