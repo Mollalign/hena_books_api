@@ -6,6 +6,7 @@ Handles reading session tracking and analytics.
 """
 
 from typing import Optional
+from uuid import UUID
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,9 +24,9 @@ class ReadingSessionService:
     
     async def start_session(
         self,
-        user_id: int,
-        book_id: int
-    ) -> ReadingSession:
+        user_id: UUID,
+        book_id: UUID
+    ) -> Optional[ReadingSession]:
         """Start a new reading session or return existing active session."""
         # Check if book exists and is published
         book = await self.book_repo.get_published_by_id(book_id)
@@ -44,8 +45,8 @@ class ReadingSessionService:
     
     async def update_session_progress(
         self,
-        session_id: int,
-        user_id: int,
+        session_id: UUID,
+        user_id: UUID,
         last_page_read: Optional[int] = None,
         time_spent_seconds: Optional[int] = None
     ) -> Optional[ReadingSession]:
@@ -63,8 +64,8 @@ class ReadingSessionService:
     
     async def end_session(
         self,
-        session_id: int,
-        user_id: int
+        session_id: UUID,
+        user_id: UUID
     ) -> Optional[ReadingSession]:
         """End a reading session."""
         # Verify session belongs to user
@@ -79,8 +80,8 @@ class ReadingSessionService:
     
     async def get_session_by_id(
         self,
-        session_id: int,
-        user_id: Optional[int] = None
+        session_id: UUID,
+        user_id: Optional[UUID] = None
     ) -> Optional[ReadingSession]:
         """Get a session by ID, optionally verifying user ownership."""
         session = await self.session_repo.get_by_id(session_id)

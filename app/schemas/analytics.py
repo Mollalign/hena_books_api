@@ -6,12 +6,13 @@ Pydantic models for analytics responses.
 
 from datetime import datetime
 from typing import List, Optional
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 
 class BookStats(BaseModel):
     """Statistics for a single book."""
-    book_id: int
+    book_id: UUID
     title: str
     cover_url: Optional[str] = None
     total_readers: int
@@ -22,7 +23,7 @@ class BookStats(BaseModel):
 
 class ReaderActivity(BaseModel):
     """Activity record for a single reader."""
-    user_id: int
+    user_id: UUID
     user_name: str
     email: str
     books_read: int
@@ -59,7 +60,7 @@ class AnalyticsResponse(BaseModel):
 
 class ReadingSessionCreate(BaseModel):
     """Schema for starting a reading session."""
-    book_id: int
+    book_id: UUID
 
 
 class ReadingSessionUpdate(BaseModel):
@@ -72,8 +73,8 @@ class ReadingSessionResponse(BaseModel):
     """Schema for reading session response."""
     model_config = ConfigDict(from_attributes=True)
     
-    id: int
-    book_id: int
+    id: UUID
+    book_id: UUID
     started_at: datetime
     ended_at: Optional[datetime] = None
     last_page_read: int

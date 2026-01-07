@@ -6,6 +6,7 @@ Pydantic models for book request/response validation.
 
 from datetime import datetime, date
 from typing import Optional, List
+from uuid import UUID
 from pydantic import BaseModel, Field, ConfigDict
 
 
@@ -38,7 +39,7 @@ class BookResponse(BookBase):
     """Schema for book response (public info)."""
     model_config = ConfigDict(from_attributes=True)
     
-    id: int
+    id: UUID
     cover_url: Optional[str] = None
     created_at: datetime
     updated_at: datetime

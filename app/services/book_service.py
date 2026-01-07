@@ -6,6 +6,7 @@ Handles book management and file operations.
 """
 
 from typing import Optional, Tuple, List
+from uuid import UUID
 from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import UploadFile, HTTPException, status
@@ -26,11 +27,11 @@ class BookService:
     def __init__(self, db: AsyncSession):
         self.book_repo = BookRepository(db)
     
-    async def get_book_by_id(self, book_id: int) -> Optional[Book]:
+    async def get_book_by_id(self, book_id: UUID) -> Optional[Book]:
         """Get a book by ID."""
         return await self.book_repo.get_by_id(book_id)
     
-    async def get_published_book_by_id(self, book_id: int) -> Optional[Book]:
+    async def get_published_book_by_id(self, book_id: UUID) -> Optional[Book]:
         """Get a published book by ID."""
         return await self.book_repo.get_published_by_id(book_id)
     
@@ -108,7 +109,7 @@ class BookService:
     
     async def update_book(
         self,
-        book_id: int,
+        book_id: UUID,
         **update_data
     ) -> Optional[Book]:
         """Update book details."""
@@ -116,7 +117,7 @@ class BookService:
         update_data = {k: v for k, v in update_data.items() if v is not None}
         return await self.book_repo.update_book(book_id, **update_data)
     
-    async def delete_book(self, book_id: int) -> bool:
+    async def delete_book(self, book_id: UUID) -> bool:
         """Delete a book and its files."""
         book = await self.book_repo.get_by_id(book_id)
         if not book:
@@ -130,7 +131,7 @@ class BookService:
         # Delete from database
         return await self.book_repo.delete_book(book_id)
     
-    async def get_download_url_for_book(self, book_id: int) -> Optional[str]:
+    async def get_download_url_for_book(self, book_id: UUID) -> Optional[str]:
         """Get download URL for a book."""
         book = await self.book_repo.get_by_id(book_id)
         if not book:

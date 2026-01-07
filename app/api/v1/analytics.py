@@ -5,6 +5,7 @@ Endpoints for tracking reading sessions and viewing analytics.
 """
 
 from datetime import datetime
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -55,7 +56,7 @@ async def start_reading_session(
 
 @router.put("/reading/{session_id}/update", response_model=ReadingSessionResponse, tags=["Reading"])
 async def update_reading_progress(
-    session_id: int,
+    session_id: UUID,
     update_data: ReadingSessionUpdate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -82,7 +83,7 @@ async def update_reading_progress(
 
 @router.post("/reading/{session_id}/end", response_model=ReadingSessionResponse, tags=["Reading"])
 async def end_reading_session(
-    session_id: int,
+    session_id: UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):

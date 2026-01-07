@@ -6,6 +6,7 @@ All reading session-related database operations.
 """
 
 from typing import Optional, List
+from uuid import UUID
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, desc
@@ -130,7 +131,7 @@ class ReadingSessionRepository(BaseRepository[ReadingSession]):
         await self.db.refresh(session)
         return session
     
-    async def get_book_statistics(self, book_id: int) -> dict:
+    async def get_book_statistics(self, book_id: UUID) -> dict:
         """Get reading statistics for a book."""
         result = await self.db.execute(
             select(

@@ -5,6 +5,7 @@ Public and admin endpoints for book management.
 """
 
 from typing import Optional
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import date
@@ -77,7 +78,7 @@ async def get_featured_books(
 
 @router.get("/{book_id}", response_model=BookDetailResponse)
 async def get_book(
-    book_id: int,
+    book_id: UUID,
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -107,7 +108,7 @@ async def get_book(
 
 @router.get("/{book_id}/read")
 async def get_book_for_reading(
-    book_id: int,
+    book_id: UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -170,7 +171,7 @@ async def upload_book(
 
 @router.put("/admin/{book_id}", response_model=BookAdminResponse)
 async def update_book(
-    book_id: int,
+    book_id: UUID,
     book_data: BookUpdate,
     admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db)
@@ -193,7 +194,7 @@ async def update_book(
 
 @router.delete("/admin/{book_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_book(
-    book_id: int,
+    book_id: UUID,
     admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -213,7 +214,7 @@ async def delete_book(
 
 @router.get("/admin/{book_id}/download")
 async def download_book(
-    book_id: int,
+    book_id: UUID,
     admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
