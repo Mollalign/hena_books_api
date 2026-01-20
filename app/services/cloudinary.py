@@ -11,8 +11,13 @@ from fastapi import UploadFile
 import logging
 
 from app.core.config import settings
+from app.core.exceptions import FileTooLargeError, FileUploadError
 
 logger = logging.getLogger(__name__)
+
+# Cloudinary free tier limit is 10MB for raw files
+MAX_FILE_SIZE_MB = 10
+MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024  # 10MB
 
 
 def configure_cloudinary():
@@ -34,12 +39,23 @@ async def upload_book_file(file: UploadFile) -> Tuple[str, str]:
         
     Returns:
         Tuple of (secure_url, public_id)
+        
+    Raises:
+        FileTooLargeError: If file exceeds 10MB
+        FileUploadError: If upload fails
     """
     configure_cloudinary()
     
     try:
         # Read file content
         content = await file.read()
+        
+        # Check file size BEFORE uploading
+        file_size = len(content)
+        if file_size > MAX_FILE_SIZE_BYTES:
+            file_size_mb = round(file_size / (1024 * 1024), 2)
+            logger.warning(f"File too large: {file_size_mb}MB (max: {MAX_FILE_SIZE_MB}MB)")
+            raise FileTooLargeError(max_size_mb=MAX_FILE_SIZE_MB)
         
         # Upload to Cloudinary as raw file (for PDFs)
         result = cloudinary.uploader.upload(
@@ -51,9 +67,11 @@ async def upload_book_file(file: UploadFile) -> Tuple[str, str]:
         )
         
         return result["secure_url"], result["public_id"]
+    except FileTooLargeError:
+        raise  # Re-raise our custom exception
     except Exception as e:
         logger.error(f"Failed to upload book file: {e}")
-        raise
+        raise FileUploadError(f"Failed to upload PDF: {str(e)}")
 
 
 async def upload_cover_image(file: UploadFile) -> Tuple[str, str]:

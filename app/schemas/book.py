@@ -99,7 +99,7 @@ class BookListResponse(BaseModel):
     total: int
     page: int
     per_page: int
-    
+
     @property
     def total_pages(self) -> int:
         """Calculate total pages."""

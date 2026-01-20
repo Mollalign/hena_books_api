@@ -141,6 +141,15 @@ class InvalidFileTypeError(ValidationError):
         super().__init__(detail=f"Invalid file type. Allowed: {allowed_types}")
 
 
+class FileTooLargeError(ValidationError):
+    """Raised when file size exceeds the maximum allowed."""
+    
+    def __init__(self, max_size_mb: int = 10):
+        super().__init__(
+            detail=f"File too large. Maximum size is {max_size_mb}MB. Please compress your PDF or use a smaller file."
+        )
+
+
 class InvalidResetCodeError(ValidationError):
     """Raised when password reset code is invalid."""
     

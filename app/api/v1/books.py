@@ -8,9 +8,8 @@ Provides CRUD operations and file handling for Christian/Biblical books.
 from typing import Optional
 from uuid import UUID
 from datetime import date
-from fastapi import APIRouter, Depends, UploadFile, File, Form, Query, Response
+from fastapi import APIRouter, Depends, UploadFile, File, Form, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-import httpx
 
 from app.core.database import get_db
 from app.core.exceptions import BookNotFoundError, ExternalServiceError
@@ -173,26 +172,25 @@ async def get_book_file(
     book_service = BookService(db)
     book = await book_service.get_published_book_by_id(book_id)
     
-    try:
-        # Use aiohttp for better streaming of large files
-        async def stream_pdf():
+    async def stream_pdf():
+        try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(book.file_url) as response:
                     response.raise_for_status()
                     async for chunk in response.content.iter_chunked(8192):
                         yield chunk
-        
-        return StreamingResponse(
-            stream_pdf(),
-            media_type="application/pdf",
-            headers={
-                "Content-Disposition": f'inline; filename="{book.title}.pdf"',
-                "Access-Control-Allow-Origin": "*",
-                "Cache-Control": "public, max-age=3600",
-            }
-        )
-    except Exception as e:
-        raise ExternalServiceError("Cloudinary", f"Failed to fetch PDF: {str(e)}")
+        except Exception as e:
+            raise ExternalServiceError("Cloudinary", f"Failed to fetch PDF: {str(e)}")
+    
+    return StreamingResponse(
+        stream_pdf(),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'inline; filename="{book.title}.pdf"',
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "public, max-age=3600",
+        }
+    )
 
 
 # =============================================================================
@@ -276,7 +274,7 @@ async def update_book(
     book_service = BookService(db)
     update_data = book_data.model_dump(exclude_unset=True)
     return await book_service.update_book(book_id, **update_data)
-
+    
 
 @router.patch("/admin/{book_id}/toggle-featured", response_model=BookAdminResponse)
 async def toggle_book_featured(
