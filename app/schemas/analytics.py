@@ -73,7 +73,7 @@ class ReadingSessionResponse(BaseModel):
     """Schema for reading session response."""
     model_config = ConfigDict(from_attributes=True)
     
-    id: UUID
+    id: int  # Reading sessions use integer IDs
     book_id: UUID
     started_at: datetime
     ended_at: Optional[datetime] = None

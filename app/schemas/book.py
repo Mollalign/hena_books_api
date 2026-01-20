@@ -8,7 +8,7 @@ Updated for Christian/Biblical book platform.
 from datetime import datetime, date
 from typing import Optional, List
 from uuid import UUID
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, Field, ConfigDict
 
 from app.models.book import BookCategory
 

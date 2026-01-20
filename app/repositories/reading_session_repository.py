@@ -30,26 +30,26 @@ class ReadingSessionRepository(BaseRepository[ReadingSession]):
     
     async def get_by_user_and_book(
         self,
-        user_id: int,
-        book_id: int
+        user_id: UUID,
+        book_id: UUID
     ) -> Optional[ReadingSession]:
-        """Get a reading session by user and book."""
+        """Get a reading session by user and book. Returns most recent if multiple exist."""
         result = await self.db.execute(
             select(ReadingSession).where(
                 and_(
                     ReadingSession.user_id == user_id,
                     ReadingSession.book_id == book_id
                 )
-            )
+            ).order_by(desc(ReadingSession.started_at)).limit(1)
         )
         return result.scalar_one_or_none()
     
     async def get_active_session(
         self,
-        user_id: int,
-        book_id: int
+        user_id: UUID,
+        book_id: UUID
     ) -> Optional[ReadingSession]:
-        """Get an active (not ended) reading session."""
+        """Get an active (not ended) reading session. Returns most recent if multiple exist."""
         result = await self.db.execute(
             select(ReadingSession).where(
                 and_(
@@ -57,13 +57,13 @@ class ReadingSessionRepository(BaseRepository[ReadingSession]):
                     ReadingSession.book_id == book_id,
                     ReadingSession.ended_at == None
                 )
-            )
+            ).order_by(desc(ReadingSession.started_at)).limit(1)
         )
         return result.scalar_one_or_none()
     
     async def get_user_sessions(
         self,
-        user_id: int,
+        user_id: UUID,
         skip: int = 0,
         limit: int = 100
     ) -> List[ReadingSession]:
@@ -79,7 +79,7 @@ class ReadingSessionRepository(BaseRepository[ReadingSession]):
     
     async def get_book_sessions(
         self,
-        book_id: int,
+        book_id: UUID,
         skip: int = 0,
         limit: int = 100
     ) -> List[ReadingSession]:
@@ -95,8 +95,8 @@ class ReadingSessionRepository(BaseRepository[ReadingSession]):
     
     async def create_session(
         self,
-        user_id: int,
-        book_id: int
+        user_id: UUID,
+        book_id: UUID
     ) -> ReadingSession:
         """Create a new reading session."""
         session = ReadingSession(

@@ -45,7 +45,7 @@ class ReadingSessionService:
     
     async def update_session_progress(
         self,
-        session_id: UUID,
+        session_id: int,
         user_id: UUID,
         last_page_read: Optional[int] = None,
         time_spent_seconds: Optional[int] = None
@@ -64,7 +64,7 @@ class ReadingSessionService:
     
     async def end_session(
         self,
-        session_id: UUID,
+        session_id: int,
         user_id: UUID
     ) -> Optional[ReadingSession]:
         """End a reading session."""
@@ -80,7 +80,7 @@ class ReadingSessionService:
     
     async def get_session_by_id(
         self,
-        session_id: UUID,
+        session_id: int,
         user_id: Optional[UUID] = None
     ) -> Optional[ReadingSession]:
         """Get a session by ID, optionally verifying user ownership."""

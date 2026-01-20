@@ -167,24 +167,31 @@ async def get_book_file(
     
     This avoids CORS issues when loading PDFs in the browser.
     """
+    from fastapi.responses import StreamingResponse
+    import aiohttp
+    
     book_service = BookService(db)
     book = await book_service.get_published_book_by_id(book_id)
     
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(book.file_url, follow_redirects=True)
-            response.raise_for_status()
-            
-            return Response(
-                content=response.content,
-                media_type="application/pdf",
-                headers={
-                    "Content-Disposition": f'inline; filename="{book.title}.pdf"',
-                    "Access-Control-Allow-Origin": "*",
-                    "Cache-Control": "public, max-age=3600",
-                }
-            )
-    except httpx.HTTPError as e:
+        # Use aiohttp for better streaming of large files
+        async def stream_pdf():
+            async with aiohttp.ClientSession() as session:
+                async with session.get(book.file_url) as response:
+                    response.raise_for_status()
+                    async for chunk in response.content.iter_chunked(8192):
+                        yield chunk
+        
+        return StreamingResponse(
+            stream_pdf(),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'inline; filename="{book.title}.pdf"',
+                "Access-Control-Allow-Origin": "*",
+                "Cache-Control": "public, max-age=3600",
+            }
+        )
+    except Exception as e:
         raise ExternalServiceError("Cloudinary", f"Failed to fetch PDF: {str(e)}")
 
 
@@ -209,7 +216,7 @@ async def upload_book(
     title: str = Form(..., description="Book title"),
     author: Optional[str] = Form(None, description="Book author"),
     description: Optional[str] = Form(None, description="Book description"),
-    category: BookCategory = Form(BookCategory.OTHER, description="Book category"),
+    category: str = Form("OTHER", description="Book category (enum name)"),
     scripture_focus: Optional[str] = Form(None, description="Primary scripture reference"),
     page_count: Optional[int] = Form(None, description="Total pages"),
     published_date: Optional[date] = Form(None, description="Publication date"),
@@ -225,22 +232,34 @@ async def upload_book(
     
     - **book_file**: PDF file (required)
     - **cover_file**: Cover image (optional, will be resized to 400x600)
-    - **category**: One of the Christian book categories
+    - **category**: One of the Christian book categories (use enum name like BIBLICAL_STUDIES)
     - **scripture_focus**: Primary scripture reference (e.g., "Romans 8:28-39")
     """
+    # Convert category string to enum (accepts both name and value)
+    try:
+        book_category = BookCategory[category]  # Try by name first (e.g., "BIBLICAL_STUDIES")
+    except KeyError:
+        try:
+            book_category = BookCategory(category)  # Try by value (e.g., "Biblical Studies")
+        except ValueError:
+            book_category = BookCategory.OTHER  # Default to OTHER if invalid
+    
+    # Handle empty cover file (treat as None if no filename or empty)
+    actual_cover_file = cover_file if cover_file and cover_file.filename else None
+    
     book_service = BookService(db)
     return await book_service.create_book(
         title=title,
         author=author,
         description=description,
-        category=category,
+        category=book_category,
         scripture_focus=scripture_focus,
         page_count=page_count,
         published_date=published_date,
         is_featured=is_featured,
         is_published=is_published,
         book_file=book_file,
-        cover_file=cover_file
+        cover_file=actual_cover_file
     )
 
 

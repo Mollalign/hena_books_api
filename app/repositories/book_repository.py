@@ -68,7 +68,7 @@ class BookRepository(BaseRepository[Book]):
             search: Search term for title or author
             category: Filter by category
             featured_only: Only return featured books
-            
+        
         Returns:
             Tuple of (books list, total count)
         """
@@ -200,7 +200,7 @@ class BookRepository(BaseRepository[Book]):
     async def delete_book(self, book_id: UUID) -> bool:
         """Delete a book by ID."""
         return await self.delete(book_id)
-    
+
     async def toggle_featured(self, book_id: UUID) -> Optional[Book]:
         """Toggle the featured status of a book."""
         book = await self.get_by_id(book_id)

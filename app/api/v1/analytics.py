@@ -56,7 +56,7 @@ async def start_reading_session(
 
 @router.put("/reading/{session_id}/update", response_model=ReadingSessionResponse, tags=["Reading"])
 async def update_reading_progress(
-    session_id: UUID,
+    session_id: int,
     update_data: ReadingSessionUpdate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -83,7 +83,7 @@ async def update_reading_progress(
 
 @router.post("/reading/{session_id}/end", response_model=ReadingSessionResponse, tags=["Reading"])
 async def end_reading_session(
-    session_id: UUID,
+    session_id: int,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):

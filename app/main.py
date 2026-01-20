@@ -146,11 +146,11 @@ Use the `/auth/login` endpoint to get a JWT token, then include it in the
         allow_methods=settings.CORS_ALLOW_METHODS,
         allow_headers=settings.CORS_ALLOW_HEADERS,
     )
-    
+
     # Add logging middleware in debug mode
     if settings.DEBUG:
         app.add_middleware(LoggingMiddleware)
-    
+
     # Register routes
     app.include_router(api_router)
     
@@ -248,5 +248,5 @@ async def readiness_check():
             status_code=503,
             content={"ready": False, "reason": "Database not ready"}
         )
-    
+
     return {"ready": True}
