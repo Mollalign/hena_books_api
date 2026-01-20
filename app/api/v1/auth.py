@@ -1,13 +1,15 @@
 """
 Auth API Routes
 
-Endpoints for user authentication and registration.
+Endpoints for user authentication, registration, and password management.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.security import create_tokens, decode_token
+from app.core.exceptions import InvalidTokenError
 from app.api.deps import get_current_user
 from app.models.user import User
 from app.schemas.user import UserCreate, UserResponse
@@ -23,10 +25,14 @@ from app.schemas.auth import (
 )
 from app.services.auth import AuthService
 from app.services.password_reset_service import PasswordResetService
-from app.core.security import create_tokens, decode_token
+
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
+
+# =============================================================================
+# REGISTRATION & LOGIN
+# =============================================================================
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(
@@ -41,23 +47,11 @@ async def register(
     - **password**: Minimum 6 characters
     """
     auth_service = AuthService(db)
-    
-    # Check if email already exists
-    existing_user = await auth_service.get_user_by_email(user_data.email)
-    if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
-        )
-    
-    # Create new user
-    user = await auth_service.create_user(
+    return await auth_service.register_user(
         email=user_data.email,
         password=user_data.password,
         name=user_data.name
     )
-    
-    return user
 
 
 @router.post("/login", response_model=Token)
@@ -68,19 +62,15 @@ async def login(
     """
     Login with email and password to get JWT tokens.
     
-    Returns access token (60 min) and refresh token (7 days).
+    Returns:
+    - **access_token**: Valid for 60 minutes
+    - **refresh_token**: Valid for 7 days
     """
     auth_service = AuthService(db)
-    user = await auth_service.authenticate_user(login_data.email, login_data.password)
-    
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    access_token, refresh_token = create_tokens(user.id)
+    user, access_token, refresh_token = await auth_service.authenticate_and_create_tokens(
+        email=login_data.email,
+        password=login_data.password
+    )
     
     return Token(
         access_token=access_token,
@@ -95,20 +85,15 @@ async def refresh_token(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Get a new access token using a valid refresh token.
+    Get new access and refresh tokens using a valid refresh token.
     """
     payload = decode_token(token_data.refresh_token)
     
     if not payload or payload.type != "refresh":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise InvalidTokenError("Invalid refresh token")
     
-    # Generate new tokens (user_id is UUID string from token)
-    user_id = payload.sub
-    access_token, refresh_token = create_tokens(user_id)
+    # Generate new tokens
+    access_token, refresh_token = create_tokens(payload.sub)
     
     return Token(
         access_token=access_token,
@@ -116,6 +101,10 @@ async def refresh_token(
         token_type="bearer"
     )
 
+
+# =============================================================================
+# USER INFO
+# =============================================================================
 
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(
@@ -128,7 +117,7 @@ async def get_current_user_info(
 
 
 # =============================================================================
-# PASSWORD RESET ENDPOINTS
+# PASSWORD RESET
 # =============================================================================
 
 @router.post("/forgot-password", response_model=ForgotPasswordResponse)
@@ -140,7 +129,7 @@ async def forgot_password(
     Request a password reset code.
     
     Sends a 6-digit code to the user's email address.
-    The code expires in 15 minutes (configurable).
+    The code expires in 15 minutes.
     """
     reset_service = PasswordResetService(db)
     result = await reset_service.request_password_reset(request.email)
@@ -178,12 +167,12 @@ async def reset_password(
     """
     Reset password using a valid reset code.
     
-    Requires:
+    Requirements:
     - Valid email
     - Valid reset code (not expired, not used)
     - New password (minimum 6 characters)
     
-    After successful reset, the code is marked as used and cannot be reused.
+    After successful reset, the code is invalidated.
     """
     reset_service = PasswordResetService(db)
     user = await reset_service.reset_password(
@@ -191,11 +180,4 @@ async def reset_password(
         code=request.code,
         new_password=request.new_password
     )
-    
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid email, code, or code has expired"
-        )
-    
     return user

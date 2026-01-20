@@ -1,21 +1,29 @@
 """
 API Dependencies
 
-Dependency injection for authentication and database sessions.
+Dependency injection for authentication and authorization.
+Provides reusable dependencies for route handlers.
 """
 
 from typing import Optional
-from fastapi import Depends, HTTPException, status
+from uuid import UUID
+from fastapi import Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.models.user import User, UserRole
 from app.core.security import decode_token
+from app.core.exceptions import (
+    AuthenticationError,
+    InvalidTokenError,
+    AdminRequiredError,
+    UserNotFoundError,
+)
+from app.models.user import User, UserRole
 from app.services.auth import AuthService
 
 
-# Security scheme for JWT
+# JWT Bearer token scheme
 security = HTTPBearer(auto_error=False)
 
 
@@ -26,60 +34,42 @@ async def get_current_user(
     """
     Get the current authenticated user from JWT token.
     
+    Usage:
+        @router.get("/protected")
+        async def protected_route(user: User = Depends(get_current_user)):
+            return {"user": user.email}
+    
     Raises:
-        HTTPException 401: If no token or invalid token
-        HTTPException 401: If user not found or inactive
+        AuthenticationError: If no token provided
+        InvalidTokenError: If token is invalid or expired
+        UserNotFoundError: If user not found or inactive
     """
     if not credentials:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise AuthenticationError("Authentication required")
     
-    token = credentials.credentials
-    payload = decode_token(token)
-    
+    # Decode and validate token
+    payload = decode_token(credentials.credentials)
     if not payload:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise InvalidTokenError()
     
     if payload.type != "access":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token type",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise InvalidTokenError("Invalid token type. Access token required.")
     
-    auth_service = AuthService(db)
-    # payload.sub is already a string (UUID), use it directly
-    from uuid import UUID
+    # Parse user ID from token
     try:
         user_id = UUID(payload.sub)
     except (ValueError, TypeError):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid user ID in token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise InvalidTokenError("Invalid user ID in token")
+    
+    # Fetch user from database
+    auth_service = AuthService(db)
     user = await auth_service.get_user_by_id(user_id)
     
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise UserNotFoundError()
     
     if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User account is inactive",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise AuthenticationError("Account is inactive")
     
     return user
 
@@ -90,14 +80,22 @@ async def get_current_user_optional(
 ) -> Optional[User]:
     """
     Get the current user if authenticated, otherwise return None.
+    
     Useful for endpoints that work with or without authentication.
+    
+    Usage:
+        @router.get("/public")
+        async def public_route(user: Optional[User] = Depends(get_current_user_optional)):
+            if user:
+                return {"message": f"Hello, {user.name}!"}
+            return {"message": "Hello, guest!"}
     """
     if not credentials:
         return None
     
     try:
         return await get_current_user(credentials, db)
-    except HTTPException:
+    except Exception:
         return None
 
 
@@ -105,14 +103,44 @@ async def get_admin_user(
     current_user: User = Depends(get_current_user)
 ) -> User:
     """
-    Get the current user and verify they are an admin.
+    Get the current user and verify they have admin role.
+    
+    Usage:
+        @router.get("/admin-only")
+        async def admin_route(admin: User = Depends(get_admin_user)):
+            return {"admin": admin.email}
     
     Raises:
-        HTTPException 403: If user is not an admin
+        AdminRequiredError: If user is not an admin
     """
     if current_user.role != UserRole.ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required"
-        )
+        raise AdminRequiredError()
     return current_user
+
+
+# =============================================================================
+# UTILITY DEPENDENCIES
+# =============================================================================
+
+def get_pagination_params(
+    page: int = 1,
+    per_page: int = 12
+) -> dict:
+    """
+    Get pagination parameters with defaults and validation.
+    
+    Usage:
+        @router.get("/items")
+        async def list_items(pagination: dict = Depends(get_pagination_params)):
+            page = pagination["page"]
+            per_page = pagination["per_page"]
+    """
+    # Clamp values to reasonable ranges
+    page = max(1, page)
+    per_page = max(1, min(50, per_page))
+    
+    return {
+        "page": page,
+        "per_page": per_page,
+        "skip": (page - 1) * per_page
+    }

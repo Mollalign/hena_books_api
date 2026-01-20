@@ -17,6 +17,11 @@ from app.schemas.auth import (
     TokenPayload,
     RefreshTokenRequest,
     PasswordChange,
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
+    VerifyResetCodeRequest,
+    VerifyResetCodeResponse,
+    ResetPasswordRequest,
 )
 from app.schemas.book import (
     BookBase,
@@ -26,6 +31,7 @@ from app.schemas.book import (
     BookDetailResponse,
     BookAdminResponse,
     BookListResponse,
+    BookFilterParams,
 )
 from app.schemas.analytics import (
     BookStats,
@@ -51,6 +57,11 @@ __all__ = [
     "TokenPayload",
     "RefreshTokenRequest",
     "PasswordChange",
+    "ForgotPasswordRequest",
+    "ForgotPasswordResponse",
+    "VerifyResetCodeRequest",
+    "VerifyResetCodeResponse",
+    "ResetPasswordRequest",
     # Book
     "BookBase",
     "BookCreate",
@@ -59,6 +70,7 @@ __all__ = [
     "BookDetailResponse",
     "BookAdminResponse",
     "BookListResponse",
+    "BookFilterParams",
     # Analytics
     "BookStats",
     "ReaderActivity",
