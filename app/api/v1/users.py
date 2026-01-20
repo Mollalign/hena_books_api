@@ -5,6 +5,7 @@ Endpoints for user management.
 """
 
 from typing import List
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -70,7 +71,7 @@ async def list_all_users(
 
 @router.delete("/admin/{user_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Admin Users"])
 async def delete_user(
-    user_id: int,
+    user_id: UUID,
     admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db)
 ):

@@ -50,6 +50,13 @@ class OverviewStats(BaseModel):
     most_popular_book: Optional[BookStats] = None
 
 
+class UserReadingStats(BaseModel):
+    """Reading statistics for a single user."""
+    total_books_read: int
+    total_reading_time_hours: float
+    total_sessions: int
+
+
 class AnalyticsResponse(BaseModel):
     """Complete analytics response."""
     overview: OverviewStats

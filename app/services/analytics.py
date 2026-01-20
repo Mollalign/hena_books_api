@@ -6,6 +6,7 @@ Handles reading statistics and platform analytics.
 """
 
 from typing import List, Optional
+from uuid import UUID
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,6 +17,7 @@ from app.schemas.analytics import (
     OverviewStats,
     BookStats,
     ReaderActivity,
+    UserReadingStats,
 )
 
 
@@ -26,6 +28,29 @@ class AnalyticsService:
         self.session_repo = ReadingSessionRepository(db)
         self.book_repo = BookRepository(db)
         self.user_repo = UserRepository(db)
+        self.db = db
+    
+    async def get_user_reading_stats(self, user_id: UUID) -> UserReadingStats:
+        """Get reading statistics for a specific user."""
+        from app.models.reading_session import ReadingSession
+        from sqlalchemy import select, func
+        
+        result = await self.db.execute(
+            select(
+                func.count(func.distinct(ReadingSession.book_id)).label("books_read"),
+                func.coalesce(func.sum(ReadingSession.total_time_seconds), 0).label("total_time"),
+                func.count(ReadingSession.id).label("total_sessions")
+            )
+            .where(ReadingSession.user_id == user_id)
+        )
+        
+        stats = result.first()
+        
+        return UserReadingStats(
+            total_books_read=stats.books_read if stats else 0,
+            total_reading_time_hours=round((stats.total_time if stats else 0) / 3600, 2),
+            total_sessions=stats.total_sessions if stats else 0
+        )
     
     async def get_book_statistics(self, book_id: int) -> dict:
         """Get reading statistics for a specific book."""

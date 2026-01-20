@@ -106,6 +106,23 @@ async def end_reading_session(
 
 
 # =============================================================================
+# USER READING STATS (Authenticated Users)
+# =============================================================================
+
+@router.get("/reading/my-stats", tags=["Reading"])
+async def get_my_reading_stats(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get current user's reading statistics.
+    """
+    analytics_service = AnalyticsService(db)
+    stats = await analytics_service.get_user_reading_stats(current_user.id)
+    return stats
+
+
+# =============================================================================
 # ANALYTICS ENDPOINTS (Admin Only)
 # =============================================================================
 

@@ -6,6 +6,7 @@ Handles user management operations.
 """
 
 from typing import Optional
+from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.user_repository import UserRepository
@@ -19,7 +20,7 @@ class UserService:
     def __init__(self, db: AsyncSession):
         self.user_repo = UserRepository(db)
     
-    async def get_user_by_id(self, user_id: int) -> Optional[User]:
+    async def get_user_by_id(self, user_id: UUID) -> Optional[User]:
         """Get a user by ID."""
         return await self.user_repo.get_by_id(user_id)
     
@@ -33,7 +34,7 @@ class UserService:
     
     async def update_user_profile(
         self,
-        user_id: int,
+        user_id: UUID,
         name: Optional[str] = None,
         password: Optional[str] = None
     ) -> Optional[User]:
@@ -49,7 +50,7 @@ class UserService:
         
         return await self.user_repo.update_user(user_id, **update_data)
     
-    async def delete_user(self, user_id: int) -> bool:
+    async def delete_user(self, user_id: UUID) -> bool:
         """Delete a user."""
         return await self.user_repo.delete_user(user_id)
 
