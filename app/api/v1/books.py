@@ -167,6 +167,7 @@ async def get_book_file(
     This avoids CORS issues when loading PDFs in the browser.
     """
     from fastapi.responses import StreamingResponse
+    from urllib.parse import quote
     import aiohttp
     
     book_service = BookService(db)
@@ -182,11 +183,19 @@ async def get_book_file(
         except Exception as e:
             raise ExternalServiceError("Cloudinary", f"Failed to fetch PDF: {str(e)}")
     
+    # Properly encode filename for Content-Disposition header
+    # Use RFC 5987 encoding for non-ASCII characters
+    safe_filename = f"{book.title}.pdf"
+    # ASCII fallback for older clients
+    ascii_filename = "book.pdf"
+    # UTF-8 encoded filename using RFC 5987 format
+    encoded_filename = quote(safe_filename, safe='')
+    
     return StreamingResponse(
         stream_pdf(),
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'inline; filename="{book.title}.pdf"',
+            "Content-Disposition": f"inline; filename=\"{ascii_filename}\"; filename*=UTF-8''{encoded_filename}",
             "Access-Control-Allow-Origin": "*",
             "Cache-Control": "public, max-age=3600",
         }

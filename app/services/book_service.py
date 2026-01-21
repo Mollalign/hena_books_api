@@ -216,8 +216,13 @@ class BookService:
             await delete_file(book.file_public_id, "raw")
             if book.cover_public_id:
                 await delete_file(book.cover_public_id, "image")
-        except Exception:
-            pass  # Log but don't fail deletion
+        except Exception as e:
+            # Log but don't fail deletion - files may become orphaned in Cloudinary
+            import logging
+            logging.getLogger(__name__).warning(
+                f"Failed to delete Cloudinary files for book {book_id}: {e}. "
+                f"Files may be orphaned: PDF={book.file_public_id}, Cover={book.cover_public_id}"
+            )
         
         return await self.repo.delete_book(book_id)
     

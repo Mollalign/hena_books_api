@@ -9,6 +9,7 @@ import cloudinary.uploader
 from typing import Optional, Tuple
 from fastapi import UploadFile
 import logging
+import uuid
 
 from app.core.config import settings
 from app.core.exceptions import FileTooLargeError, FileUploadError
@@ -18,6 +19,22 @@ logger = logging.getLogger(__name__)
 # Cloudinary free tier limit is 10MB for raw files
 MAX_FILE_SIZE_MB = 10
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024  # 10MB
+
+
+def generate_safe_public_id(original_filename: Optional[str] = None) -> str:
+    """
+    Generate a safe public_id for Cloudinary uploads.
+    
+    Uses UUID to avoid issues with non-ASCII characters (Amharic, etc.)
+    in filenames which could cause encoding problems with Cloudinary.
+    
+    Args:
+        original_filename: Optional original filename (used for extension only)
+        
+    Returns:
+        A UUID-based safe public_id
+    """
+    return str(uuid.uuid4())
 
 
 def configure_cloudinary():
@@ -57,12 +74,15 @@ async def upload_book_file(file: UploadFile) -> Tuple[str, str]:
             logger.warning(f"File too large: {file_size_mb}MB (max: {MAX_FILE_SIZE_MB}MB)")
             raise FileTooLargeError(max_size_mb=MAX_FILE_SIZE_MB)
         
+        # Generate safe public_id (UUID-based to avoid non-ASCII filename issues)
+        safe_public_id = generate_safe_public_id(file.filename)
+        
         # Upload to Cloudinary as raw file (for PDFs)
         result = cloudinary.uploader.upload(
             content,
             resource_type="raw",
             folder="hena_books/pdfs",
-            public_id=file.filename.rsplit('.', 1)[0] if file.filename else None,
+            public_id=safe_public_id,
             overwrite=True,
         )
         
@@ -89,11 +109,15 @@ async def upload_cover_image(file: UploadFile) -> Tuple[str, str]:
     try:
         content = await file.read()
         
+        # Generate safe public_id (UUID-based to avoid non-ASCII filename issues)
+        safe_public_id = generate_safe_public_id(file.filename)
+        
         # Upload as image with transformations
         result = cloudinary.uploader.upload(
             content,
             resource_type="image",
             folder="hena_books/covers",
+            public_id=safe_public_id,
             transformation=[
                 {"width": 400, "height": 600, "crop": "fill"},
                 {"quality": "auto"},
